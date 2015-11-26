@@ -19,10 +19,11 @@ void error(const __FlashStringHelper*err) {
 int32_t hsServiceId;
 int32_t hsDataCharId;
 
-int scale = 5;
-float threshold = 3;
+float thresholdX = 135;
+float thresholdY = 270; //or more
+float thresholdZ = 220;
 int shakes = 0;
-int time = millis();
+unsigned long time = millis();
 
 void setup()
 {
@@ -44,7 +45,8 @@ void setup()
   Serial.println("Requesting Bluefruit info:");
   ble.info();
 
-  //ble.verbose(false);
+  // MAKE TRUE IF DEBUGGING
+  ble.verbose(true);
 
   Serial.println(F("Adding the Handshake Service definition "));
   int success = ble.sendCommandWithIntReply( F("AT+GATTADDSERVICE=UUID128=00-77-13-12-11-00-00-00-00-00-AB-BA-0F-A1-AF-E1"), &hsServiceId);
@@ -66,34 +68,34 @@ void setup()
 }
 
 void loop()
-{  
-  // Get raw accelerometer data for each axis
-  int rawX = analogRead(A0);
-  //int rawY = analogRead(A1);
-  //int rawZ = analogRead(A2);
+{
+//  FOR DEBUGGING ONLY
+//  Serial.print(F("AT > "));
+//  char command[BUFSIZE+1];
+//  getUserInput(command, BUFSIZE);
+//  ble.println(command);
+//  ble.waitForOK();
   
-  // Scale accelerometer ADC readings into common units
-  // Scale map depends on if using a 5V or 3.3V microcontroller
-  float scaledX, scaledY, scaledZ; // Scaled values for each axis
-  scaledX = mapf(rawX, 0, 675, -scale, scale);
-  //scaledY = mapf(rawY, 0, 675, -scale, scale);
-  //scaledZ = mapf(rawZ, 0, 675, -scale, scale);
+  // Get raw accelerometer data for each axis
+  int rawX = analogRead(A3);
+  int rawY = analogRead(A4);
+  int rawZ = analogRead(A5);
 
-  if(abs(scaledX) >= threshold && millis() - time < 1000) {
-    Serial.write("H++");
+  if(within(rawX, thresholdX)
+    && withinI(rawY, thresholdY)
+    && withinI(rawZ, thresholdZ)
+    && millis() - time < 1000) {
     shakes++;
   }
 
-  if(shakes > 6){
-    Serial.write("HANDHSAKE");
-    ble.print( F("AT+GATTCHAR=") );
-    ble.print( hsDataCharId );
-    ble.print( ",1" );
-
-    if ( !ble.waitForOK() ){
-      Serial.println(F("Failed to get response!"));
-    }
-  
+  if(shakes > 6){  
+//    ble.print( F("AT+GATTCHAR=") );
+//    ble.print( hsDataCharId );
+//    ble.print( ",1" );
+//
+//    if (!ble.waitForOK()){
+//      Serial.println("SEND FAIL");
+//    }
     shakes = 0;
   }
 
@@ -105,9 +107,26 @@ void loop()
   delay(20);
 }
 
-// Same functionality as Arduino's standard map function, except using floats
-float mapf(float x, float in_min, float in_max, float out_min, float out_max)
-{
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+bool within(float x, float t){
+  return ((x < t) || (675-x < t));
 }
+
+bool withinI(float x, float t){
+  return ((x > t) && (675-x > t));
+}
+
+//void getUserInput(char buffer[], uint8_t maxSize)
+//{
+//  memset(buffer, 0, maxSize);
+//  while( Serial.peek() < 0 ) {}
+//  delay(2);
+//
+//  uint8_t count=0;
+//
+//  do
+//  {
+//    count += Serial.readBytes(buffer+count, maxSize);
+//    delay(2);
+//  } while( (count < maxSize) && !(Serial.peek() < 0) );
+//}
 
